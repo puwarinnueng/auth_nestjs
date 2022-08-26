@@ -1,9 +1,11 @@
+import { SearchTaskDto } from './dto/search-tasks.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { Task } from './task.entity';
 import { TaskRepository } from './task.repository';
+import { User } from 'src/user/user.entity';
 
 @Injectable()
 export class TaskService {
@@ -12,7 +14,7 @@ export class TaskService {
         private taskRepository: TaskRepository
     ) { }
 
-    async createTask(createTaskDto: CreateTaskDto): Promise<Task> {
+    async createTask(createTaskDto: CreateTaskDto , user: User): Promise<Task> {
         const {
             title,
             description,
@@ -21,6 +23,7 @@ export class TaskService {
         const task = await this.taskRepository.create({
             title,
             description,
+            user,
         })
         try {
             await this.taskRepository.save(task)
@@ -34,9 +37,24 @@ export class TaskService {
     }
 
 
-    async getTasks(): Promise<Task[]> {
+    async getTasks(user: User , searchTaskDto: SearchTaskDto): Promise<Task[]> {
         try {
-            const tasks = await this.taskRepository.find()
+            // const tasks = await this.taskRepository.find({where: {user}})
+            // return tasks
+
+            const {
+                search
+            } = searchTaskDto
+            const query = this.taskRepository.createQueryBuilder('task')
+            query.where({ user })
+
+            if(search){
+                query.andWhere('(LOWER(task.title) LIKE LOWER(:search) OR LOWER(task.description) LIKE LOWER(:search))',
+                { search: `%${search}%` })
+            }
+
+            const tasks = await query.getMany()
+
             return tasks
         } catch (e) {
             console.log("error")
@@ -47,9 +65,9 @@ export class TaskService {
     }
 
 
-    async getTaskById(id: string): Promise<Task> {
+    async getTaskById(id: string , user: User): Promise<Task> {
         try {
-            const taskid = await this.taskRepository.findOne(id)
+            const taskid = await this.taskRepository.findOne({  where: {user,id}   })
             return taskid
         } catch (e) {
             throw new NotFoundException({
@@ -59,9 +77,9 @@ export class TaskService {
     }
 
 
-    async updateTask(id: string, updateTaskDto: UpdateTaskDto) {
+    async updateTask(id: string, updateTaskDto: UpdateTaskDto ,user: User) {
         try {
-            const task = await this.getTaskById(id)
+            const task = await this.getTaskById(id , user)
 
             const {
                 title,
@@ -88,9 +106,9 @@ export class TaskService {
     }
 
 
-    async deleteTask(id:string){
+    async deleteTask(id:string , user: User){
         try{
-            const task = await this.getTaskById(id)
+            const task = await this.getTaskById(id, user)
             await this.taskRepository.delete(id)
 
             return task

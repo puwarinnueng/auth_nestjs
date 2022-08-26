@@ -1,3 +1,4 @@
+import { User } from "src/user/user.entity";
 import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
 @Entity({ name: 'tasks' })
@@ -17,5 +18,8 @@ export class Task {
 
     @UpdateDateColumn()
     updated: Date
+
+    @ManyToOne(type => User, user=> user.tasks)
+    user: User
 
 }
